@@ -1349,7 +1349,7 @@ if [[ -x "/usr/bin/bwrap" && "${JRIVER_APPIMAGE_USE_BWRAP:-0}" == "1" ]]; then
   fi
 fi
 
-if [[ -x "${APPDIR}/usr/bin/proot" && "${JRIVER_APPIMAGE_USE_PROOT:-1}" == "1" ]]; then
+if [[ -x "${APPDIR}/usr/bin/proot" && "${JRIVER_APPIMAGE_USE_PROOT:-0}" == "1" ]]; then
   exec "${APPDIR}/usr/bin/proot" \
     -b "${payload_root}:/usr/lib/jriver/Media Center 35" \
     -b "${APPDIR}/usr/lib/jriver-runtime:/usr/lib/jriver-runtime" \
