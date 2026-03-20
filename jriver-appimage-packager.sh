@@ -27,6 +27,7 @@ PACKAGE_NAME="${PACKAGE_NAME:-mediacenter35}"
 INSTALL_USER="${JRIVER_INSTALL_USER:-${SUDO_USER:-${USER}}}"
 VENDOR_ROOT="/usr/lib/jriver/Media Center 35"
 VENDOR_LAUNCHER="/usr/bin/mediacenter35"
+DISABLE_STARTUP_GUARD="${JRIVER_APPIMAGE_DISABLE_STARTUP_GUARD:-0}"
 
 SKIP_PREREQS=0
 SKIP_INSTALL=0
@@ -68,6 +69,10 @@ Options:
   --skip-install        Skip JRiver installation refresh.
   --keep-work           Keep any existing AppDir and staging files.
   -h, --help            Show this help text.
+
+Environment:
+  JRIVER_APPIMAGE_DISABLE_STARTUP_GUARD=1
+                        Skip the CActionWindowArray startup guard patch.
 EOF
 }
 
@@ -664,6 +669,17 @@ apply_startup_guard_patch() {
   msg INFO "Applied startup guard patch to $(basename "${binary_path}")"
 }
 
+maybe_apply_startup_guard_patch() {
+  local binary_path="$1"
+
+  if [[ "${DISABLE_STARTUP_GUARD}" == "1" ]]; then
+    msg INFO "Skipping startup guard patch for $(basename "${binary_path}") because JRIVER_APPIMAGE_DISABLE_STARTUP_GUARD=1"
+    return
+  fi
+
+  apply_startup_guard_patch "${binary_path}"
+}
+
 detect_arch() {
   case "$(uname -m)" in
     x86_64)
@@ -1147,12 +1163,12 @@ copy_payload() {
 
   cp -a --no-preserve=ownership "${VENDOR_LAUNCHER}" "${APPDIR}/usr/bin/mediacenter35.vendor"
   chmod u+w "${APPDIR}/usr/bin/mediacenter35.vendor"
-  apply_startup_guard_patch "${APPDIR}/usr/bin/mediacenter35.vendor"
+  maybe_apply_startup_guard_patch "${APPDIR}/usr/bin/mediacenter35.vendor"
   chmod 0755 "${APPDIR}/usr/bin/mediacenter35.vendor"
 
   if [[ -f "${payload_launcher}" ]] && is_elf "${payload_launcher}"; then
     chmod u+w "${payload_launcher}"
-    apply_startup_guard_patch "${payload_launcher}"
+    maybe_apply_startup_guard_patch "${payload_launcher}"
     chmod 0755 "${payload_launcher}"
   fi
 
@@ -1491,6 +1507,7 @@ appdir=${FINAL_APPDIR:-${APPDIR}}
 output_dir=${OUTPUT_DIR}
 direct_runtime_opt_in=JRIVER_APPIMAGE_USE_DIRECT=1
 direct_runtime_path_shim=JRIVER_APPIMAGE_USE_PATH_SHIM=1
+startup_guard_disabled=${DISABLE_STARTUP_GUARD}
 EOF
 
   (
@@ -1540,6 +1557,7 @@ source_artifact=${artifact}
 source_appdir=${APPDIR}
 validated_runtime=launch,audio,video
 validated_mode=JRIVER_APPIMAGE_USE_DIRECT=1
+startup_guard_disabled=${DISABLE_STARTUP_GUARD}
 EOF
 
   ln -sfn "${BASELINE_LABEL}" "${BASELINE_DIR}/current"
@@ -1576,8 +1594,14 @@ Host launch instructions
   Current known-good baseline: direct launch, audio playback, and video playback
   have been validated with JRIVER_APPIMAGE_USE_DIRECT=1.
 
+   Build-time startup crash repro switch:
+  JRIVER_APPIMAGE_DISABLE_STARTUP_GUARD=${DISABLE_STARTUP_GUARD}
+
 5. To test the new no-namespace fast path explicitly:
   JRIVER_APPIMAGE_USE_DIRECT=1 ./$(basename "${artifact}")
+
+   To build an artifact that reproduces the CActionWindowArray startup crash:
+  JRIVER_APPIMAGE_DISABLE_STARTUP_GUARD=1 bash jriver-appimage-packager.sh --skip-prereqs
 
    To disable the direct-mode path shim while debugging:
    JRIVER_APPIMAGE_USE_DIRECT=1 JRIVER_APPIMAGE_USE_PATH_SHIM=0 ./$(basename "${artifact}")

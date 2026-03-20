@@ -131,6 +131,8 @@ The current JRMC 35 Linux build has a startup crash in the browser-related UI pa
 
 The current workaround is a trampoline patch that adds the missing guard before the dereference. Upstream should fix this in JRiver itself so binary patching is no longer necessary.
 
+For regression testing, the builder also supports a reproducible opt-out at build time. Set `JRIVER_APPIMAGE_DISABLE_STARTUP_GUARD=1` when invoking the packager to produce an artifact without the workaround so the original crash path can be reproduced on affected Fedora-based hosts.
+
 ### Fixed-path install assumptions
 
 JRiver assumes fixed host paths under `/usr/lib/jriver` and `/usr/bin`. Those assumptions are awkward even for portable packaging and directly conflict with immutable systems where `/usr` is not writable.
@@ -182,6 +184,13 @@ Build and preserve a known-good baseline:
 
 ```bash
 bash jriver-appimage-packager.sh --skip-prereqs --baseline-label 2026-03-20-working
+```
+
+Build an artifact that intentionally omits the startup crash workaround:
+
+```bash
+JRIVER_APPIMAGE_DISABLE_STARTUP_GUARD=1 \
+	bash jriver-appimage-packager.sh --skip-prereqs --baseline-label reproduce-cactionwindowarray-crash
 ```
 
 Override the build root and export a copy of the finished artifact:
