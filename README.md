@@ -62,3 +62,19 @@ Notable outputs:
 ## Notes
 
 The current workflow is tuned for Bazzite and similar immutable hosts where direct relocatable execution is more reliable than namespace tricks that depend on writing synthetic paths under `/usr`.
+
+## GitHub Actions
+
+The repository includes a workflow at `.github/workflows/build-appimage.yml` that runs on every push and on manual dispatch.
+
+The workflow:
+
+- runs `jriver-appimage-packager.sh` on `ubuntu-24.04`
+- builds under the runner temp directory
+- exports the finished AppImage and manifests into `dist/`
+- uploads the AppImage, manifests, and build logs as workflow artifacts
+- publishes the AppImage to a GitHub Release when the workflow runs from a tag push
+
+After a run completes, download the `jriver-appimage-*` artifact from the Actions run summary to retrieve the generated AppImage.
+
+To publish a release build, push a Git tag such as `v1.0.0`. The workflow will build the AppImage and attach it to the corresponding GitHub Release automatically.

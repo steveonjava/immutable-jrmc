@@ -1,0 +1,59 @@
+name: Build AppImage
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: appimage-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build JRiver AppImage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      BUILD_ROOT: /tmp/jriver-appimage-${{ github.run_id }}
+      EXPORT_DIR: ${{ github.workspace }}/dist
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Ensure packager is executable
+        run: chmod +x ./jriver-appimage-packager.sh
+
+      - name: Build AppImage
+        run: ./jriver-appimage-packager.sh --build-root "$BUILD_ROOT" --export-dir "$EXPORT_DIR"
+
+      - name: Upload AppImage bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jriver-appimage-${{ github.run_number }}
+          path: |
+            dist/*.AppImage
+            dist/manifests/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jriver-appimage-logs-${{ github.run_number }}
+          path: |
+            ${{ env.BUILD_ROOT }}/logs/**
+            ${{ env.BUILD_ROOT }}/manifests/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Publish AppImage to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.AppImage
+          generate_release_notes: true
