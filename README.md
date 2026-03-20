@@ -63,6 +63,8 @@ Notable outputs:
 
 The current workflow is tuned for Bazzite and similar immutable hosts where direct relocatable execution is more reliable than namespace tricks that depend on writing synthetic paths under `/usr`.
 
+Generated AppImages now default to the direct launch path. `proot` remains bundled as a compatibility fallback, but it is only used when explicitly requested with `JRIVER_APPIMAGE_USE_PROOT=1`.
+
 ## GitHub Actions
 
 The repository includes a workflow at `.github/workflows/build-appimage.yml` that runs on every push and on manual dispatch.
