@@ -1,0 +1,18 @@
+# Build output
+state/
+output/
+logs/
+manifests/
+baselines/
+AppDir/
+AppDir.work/
+staging/
+
+# Temporary files
+*.log
+*.err
+*.tmp
+
+# Editor / OS
+.DS_Store
+Thumbs.db
