@@ -1,0 +1,60 @@
+name: Build AppImage (Guard Disabled)
+
+on:
+  workflow_dispatch:
+    inputs:
+      baseline_label:
+        description: Optional baseline label to record for the repro artifact
+        required: false
+        default: reproduce-cactionwindowarray-crash
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: appimage-guard-disabled-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build JRiver AppImage (Guard Disabled)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      BUILD_ROOT: /tmp/jriver-appimage-guard-disabled-${{ github.run_id }}
+      EXPORT_DIR: ${{ github.workspace }}/dist
+      JRIVER_APPIMAGE_DISABLE_STARTUP_GUARD: "1"
+      BASELINE_LABEL: ${{ inputs.baseline_label }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Ensure packager is executable
+        run: chmod +x ./jriver-appimage-packager.sh
+
+      - name: Build AppImage with startup guard disabled
+        run: ./jriver-appimage-packager.sh --build-root "$BUILD_ROOT" --export-dir "$EXPORT_DIR" --baseline-label "$BASELINE_LABEL"
+
+      - name: Upload AppImage bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jriver-appimage-guard-disabled-${{ github.run_number }}
+          path: |
+            dist/*.AppImage
+            dist/manifests/**
+            ${{ env.BUILD_ROOT }}/baselines/**
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jriver-appimage-guard-disabled-logs-${{ github.run_number }}
+          path: |
+            ${{ env.BUILD_ROOT }}/logs/**
+            ${{ env.BUILD_ROOT }}/manifests/**
+          if-no-files-found: warn
+          retention-days: 14
