@@ -24,6 +24,7 @@ EXPORT_DIR="${EXPORT_DIR:-}"
 
 APP_NAME="JRiver Media Center"
 PACKAGE_NAME="${PACKAGE_NAME:-mediacenter35}"
+PINNED_JRIVER_VERSION="${PINNED_JRIVER_VERSION:-35.0.54}"
 INSTALL_USER="${JRIVER_INSTALL_USER:-${SUDO_USER:-${USER}}}"
 VENDOR_ROOT="/usr/lib/jriver/Media Center 35"
 VENDOR_LAUNCHER="/usr/bin/mediacenter35"
@@ -841,6 +842,8 @@ ensure_prereqs() {
 }
 
 install_jriver() {
+  local -a install_args=(--install=repo --mcversion "${PINNED_JRIVER_VERSION}" --yes --no-update)
+
   if (( SKIP_INSTALL == 1 )); then
     msg INFO "Skipping JRiver installation refresh"
     return
@@ -851,7 +854,7 @@ install_jriver() {
   fi
 
   if (( EUID == 0 )) && [[ "${INSTALL_USER}" != "root" ]]; then
-    runuser -l "${INSTALL_USER}" -- /usr/local/bin/installJRMC --install=repo --yes --no-update
+    runuser -l "${INSTALL_USER}" -- /usr/local/bin/installJRMC "${install_args[@]}"
     return
   fi
 
@@ -859,7 +862,7 @@ install_jriver() {
     die "Run as ${INSTALL_USER}, root, or pass --install-user with a valid account"
   fi
 
-  /usr/local/bin/installJRMC --install=repo --yes --no-update
+  /usr/local/bin/installJRMC "${install_args[@]}"
 }
 
 find_primary_binary() {
@@ -879,8 +882,16 @@ find_primary_binary() {
 }
 
 detect_vendor_layout() {
+  local package_status
+
   [[ -d "${VENDOR_ROOT}" ]] || die "Missing JRiver payload root: ${VENDOR_ROOT}"
   [[ -e "${VENDOR_LAUNCHER}" ]] || die "Missing JRiver launcher: ${VENDOR_LAUNCHER}"
+  package_status="$(dpkg-query -W "${PACKAGE_NAME}" 2>/dev/null || true)"
+  if [[ -n "${package_status}" ]]; then
+    msg INFO "dpkg-query -W ${PACKAGE_NAME}: ${package_status}"
+  else
+    msg INFO "dpkg-query -W ${PACKAGE_NAME}: package not installed"
+  fi
   JRIVER_VERSION="$(dpkg-query -W -f='${Version}\n' "${PACKAGE_NAME}" 2>/dev/null || true)"
   [[ -n "${JRIVER_VERSION}" ]] || JRIVER_VERSION="unknown"
   find_primary_binary

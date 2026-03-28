@@ -180,6 +180,11 @@ Basic build:
 bash jriver-appimage-packager.sh
 ```
 
+The builder currently pins the JRiver install step to `35.0.54` so the startup
+guard patch is applied against a known compatible launcher build. The script also
+logs `dpkg-query -W mediacenter35` during layout detection so CI runs show the
+actual installed package version.
+
 Build and preserve a known-good baseline:
 
 ```bash
