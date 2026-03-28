@@ -841,11 +841,45 @@ ensure_prereqs() {
   fi
 }
 
+prepare_pinned_jriver_deb() {
+  local output_dir="$1"
+  local deb_arch deb_name deb_path deb_url
+
+  deb_arch="$(dpkg --print-architecture)"
+  case "${deb_arch}" in
+    amd64|arm64|armhf)
+      ;;
+    *)
+      die "Unsupported Debian architecture for pinned JRiver download: ${deb_arch}"
+      ;;
+  esac
+
+  mkdir -p "${output_dir}/SOURCES"
+  deb_name="MediaCenter-${PINNED_JRIVER_VERSION}-${deb_arch}.deb"
+  deb_path="${output_dir}/SOURCES/${deb_name}"
+  deb_url="https://files.jriver-cdn.com/mediacenter/channels/v35/latest/${deb_name}"
+
+  if [[ -f "${deb_path}" ]] && [[ $(stat -c '%s' "${deb_path}") -gt 30000000 ]]; then
+    msg INFO "Using cached pinned JRiver DEB: ${deb_path}"
+    return
+  fi
+
+  msg INFO "Downloading pinned JRiver DEB from ${deb_url}"
+  curl -fsSL "${deb_url}" -o "${deb_path}" || die "Failed to download pinned JRiver DEB: ${deb_url}"
+}
+
 install_jriver() {
   local -a install_args=(--yes --no-update)
+  local install_output_dir
 
   if [[ -n "${PINNED_JRIVER_VERSION}" ]]; then
+    install_output_dir="${STAGING_DIR}/installjrmc-output"
+    prepare_pinned_jriver_deb "${install_output_dir}"
+    if (( EUID == 0 )) && [[ "${INSTALL_USER}" != "root" ]]; then
+      as_root chown -R "${INSTALL_USER}:${INSTALL_USER}" "${install_output_dir}"
+    fi
     install_args+=(--install=local --mcversion "${PINNED_JRIVER_VERSION}")
+    install_args+=(--outputdir "${install_output_dir}")
     msg INFO "Installing pinned JRiver ${PINNED_JRIVER_VERSION} from direct DEB"
   else
     install_args+=(--install=repo)
@@ -901,6 +935,9 @@ detect_vendor_layout() {
   fi
   JRIVER_VERSION="$(dpkg-query -W -f='${Version}\n' "${PACKAGE_NAME}" 2>/dev/null || true)"
   [[ -n "${JRIVER_VERSION}" ]] || JRIVER_VERSION="unknown"
+  if [[ -n "${PINNED_JRIVER_VERSION}" ]] && [[ "${JRIVER_VERSION}" != "${PINNED_JRIVER_VERSION}" ]]; then
+    die "Pinned JRiver version ${PINNED_JRIVER_VERSION} requested, but ${PACKAGE_NAME} ${JRIVER_VERSION} is installed"
+  fi
   find_primary_binary
 }
 
