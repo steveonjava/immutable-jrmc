@@ -4,7 +4,6 @@ IFS=$'\n\t'
 
 SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_NAME
-readonly INSTALLJRMC_URL="https://git.bryanroessler.com/bryan/installJRMC/raw/branch/master/installJRMC"
 
 DEFAULT_BUILD_ROOT="/var/lib/jriver-appimage"
 if (( EUID != 0 )); then
@@ -53,27 +52,6 @@ readonly STARTUP_PATCH_SITE_HEX="e94d23bdff9090"
 readonly STARTUP_PATCH_STUB_ORIG_HEX="c3662e0f1f8400000000000f1f440000c3662e0f1f8400000000000f1f44"
 readonly STARTUP_PATCH_STUB_HEX="488bbf380200004885ff740d488b7608488b07ff90f0000000e9a4dc4200"
 
-default_install_user() {
-  if [[ -n "${JRIVER_INSTALL_USER:-}" ]]; then
-    printf '%s\n' "${JRIVER_INSTALL_USER}"
-    return
-  fi
-
-  if [[ -n "${SUDO_USER:-}" ]]; then
-    printf '%s\n' "${SUDO_USER}"
-    return
-  fi
-
-  if [[ -n "${USER:-}" ]]; then
-    printf '%s\n' "${USER}"
-    return
-  fi
-
-  id -un
-}
-
-INSTALL_USER="$(default_install_user)"
-
 usage() {
   cat <<EOF
 Usage: ${SCRIPT_NAME} [options]
@@ -85,7 +63,6 @@ Options:
   --build-root PATH     Override the container-local build root.
   --baseline-label ID   Record a known-good artifact baseline under BUILD_ROOT/baselines/ID.
   --export-dir PATH     Copy the finished AppImage and manifests to PATH.
-  --install-user USER   Run installJRMC as USER. Default: ${INSTALL_USER}
   --skip-prereqs        Skip apt/appimagetool prerequisite setup.
   --skip-install        Skip JRiver installation refresh.
   --keep-work           Keep any existing AppDir and staging files.
@@ -742,11 +719,6 @@ parse_args() {
         EXPORT_DIR="$2"
         shift 2
         ;;
-      --install-user)
-        [[ $# -ge 2 ]] || die "--install-user requires a value"
-        INSTALL_USER="$2"
-        shift 2
-        ;;
       --skip-prereqs)
         SKIP_PREREQS=1
         shift
@@ -848,12 +820,6 @@ ensure_prereqs() {
   need_cmd rsync
   need_cmd sort
 
-  if [[ ! -x /usr/local/bin/installJRMC ]]; then
-    msg INFO "Refreshing installJRMC"
-    as_root curl -fsSL "${INSTALLJRMC_URL}" -o /usr/local/bin/installJRMC
-    as_root chmod 0755 /usr/local/bin/installJRMC
-  fi
-
   detect_arch
   if [[ ! -x "${APPIMAGE_TOOL_PATH}" ]]; then
     msg INFO "Downloading appimagetool"
@@ -865,6 +831,8 @@ ensure_prereqs() {
 prepare_pinned_jriver_deb() {
   local output_dir="$1"
   local deb_arch deb_name deb_path deb_url
+
+  [[ -n "${PINNED_JRIVER_VERSION}" ]] || die "PINNED_JRIVER_VERSION must be set for direct JRiver package installation"
 
   deb_arch="$(dpkg --print-architecture)"
   case "${deb_arch}" in
@@ -881,50 +849,27 @@ prepare_pinned_jriver_deb() {
   deb_url="https://files.jriver-cdn.com/mediacenter/channels/v35/latest/${deb_name}"
 
   if [[ -f "${deb_path}" ]] && [[ $(stat -c '%s' "${deb_path}") -gt 30000000 ]]; then
-    msg INFO "Using cached pinned JRiver DEB: ${deb_path}"
+    msg INFO "Using cached pinned JRiver DEB: ${deb_path}" >&2
+    printf '%s\n' "${deb_path}"
     return
   fi
 
-  msg INFO "Downloading pinned JRiver DEB from ${deb_url}"
+  msg INFO "Downloading pinned JRiver DEB from ${deb_url}" >&2
   curl -fsSL "${deb_url}" -o "${deb_path}" || die "Failed to download pinned JRiver DEB: ${deb_url}"
+  printf '%s\n' "${deb_path}"
 }
 
 install_jriver() {
-  local -a install_args=(--yes --no-update)
-  local install_output_dir
-
-  if [[ -n "${PINNED_JRIVER_VERSION}" ]]; then
-    install_output_dir="${STAGING_DIR}/installjrmc-output"
-    prepare_pinned_jriver_deb "${install_output_dir}"
-    if (( EUID == 0 )) && [[ "${INSTALL_USER}" != "root" ]]; then
-      as_root chown -R "${INSTALL_USER}:${INSTALL_USER}" "${install_output_dir}"
-    fi
-    install_args+=(--install=local --mcversion "${PINNED_JRIVER_VERSION}")
-    install_args+=(--outputdir "${install_output_dir}")
-    msg INFO "Installing pinned JRiver ${PINNED_JRIVER_VERSION} from direct DEB"
-  else
-    install_args+=(--install=repo)
-  fi
+  local deb_path
 
   if (( SKIP_INSTALL == 1 )); then
     msg INFO "Skipping JRiver installation refresh"
     return
   fi
 
-  if ! id -u "${INSTALL_USER}" >/dev/null 2>&1; then
-    die "Install user does not exist: ${INSTALL_USER}"
-  fi
-
-  if (( EUID == 0 )) && [[ "${INSTALL_USER}" != "root" ]]; then
-    runuser -l "${INSTALL_USER}" -- /usr/local/bin/installJRMC "${install_args[@]}"
-    return
-  fi
-
-  if [[ "$(id -un)" != "${INSTALL_USER}" ]]; then
-    die "Run as ${INSTALL_USER}, root, or pass --install-user with a valid account"
-  fi
-
-  /usr/local/bin/installJRMC "${install_args[@]}"
+  deb_path="$(prepare_pinned_jriver_deb "${STAGING_DIR}/jriver-package")"
+  msg INFO "Installing pinned JRiver ${PINNED_JRIVER_VERSION} from ${deb_path}"
+  as_root apt-get install -y --reinstall --allow-downgrades "${deb_path}"
 }
 
 find_primary_binary() {
@@ -965,7 +910,10 @@ detect_vendor_layout() {
 find_existing_chromium_payload() {
   local install_home payload_root
 
-  install_home="$(getent passwd "${INSTALL_USER}" | cut -d: -f6 || true)"
+  install_home="${HOME:-}"
+  if [[ -z "${install_home}" ]] || [[ ! -d "${install_home}" ]]; then
+    install_home="$(getent passwd "$(id -un)" | cut -d: -f6 || true)"
+  fi
   [[ -n "${install_home}" ]] || return 1
 
   payload_root="${install_home}/.jriver/Media Center 35/Plugins/linux_chromium64"
@@ -1574,7 +1522,7 @@ write_manifests() {
 app_name=${APP_NAME}
 package_name=${PACKAGE_NAME}
 version=${JRIVER_VERSION}
-install_user=${INSTALL_USER}
+build_user=$(id -un)
 vendor_root=${VENDOR_ROOT}
 vendor_launcher=${VENDOR_LAUNCHER}
 primary_binary=${PRIMARY_BINARY}
