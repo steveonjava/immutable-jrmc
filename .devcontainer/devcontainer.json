@@ -1,0 +1,34 @@
+{
+  "name": "immutable-jrmc",
+  "build": {
+    "context": "..",
+    "dockerfile": "Dockerfile"
+  },
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "remoteUser": "vscode",
+  "containerEnv": {
+    "BUILD_ROOT": "/workspace/.local-build/devcontainer/build-root",
+    "EXPORT_DIR": "/workspace/dist",
+    "XDG_STATE_HOME": "/workspace/.local-build/devcontainer/xdg-state",
+    "CI": "1"
+  },
+  "mounts": [
+    "source=immutable-jrmc-home,target=/home/vscode,type=volume"
+  ],
+  "postCreateCommand": "bash -lc 'mkdir -p /workspace/dist /workspace/.local-build/devcontainer/build-root /workspace/.local-build/devcontainer/xdg-state'",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true
+      },
+      "extensions": [
+        "timonwong.shellcheck",
+        "foxundermoon.shell-format",
+        "ms-vscode.makefile-tools"
+      ]
+    }
+  }
+}

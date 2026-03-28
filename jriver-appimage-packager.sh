@@ -25,7 +25,6 @@ EXPORT_DIR="${EXPORT_DIR:-}"
 APP_NAME="JRiver Media Center"
 PACKAGE_NAME="${PACKAGE_NAME:-mediacenter35}"
 PINNED_JRIVER_VERSION="${PINNED_JRIVER_VERSION:-35.0.54}"
-INSTALL_USER="${JRIVER_INSTALL_USER:-${SUDO_USER:-${USER}}}"
 VENDOR_ROOT="/usr/lib/jriver/Media Center 35"
 VENDOR_LAUNCHER="/usr/bin/mediacenter35"
 DISABLE_STARTUP_GUARD="${JRIVER_APPIMAGE_DISABLE_STARTUP_GUARD:-0}"
@@ -53,6 +52,27 @@ readonly STARTUP_PATCH_SITE_ORIG_HEX="488bbf38020000"
 readonly STARTUP_PATCH_SITE_HEX="e94d23bdff9090"
 readonly STARTUP_PATCH_STUB_ORIG_HEX="c3662e0f1f8400000000000f1f440000c3662e0f1f8400000000000f1f44"
 readonly STARTUP_PATCH_STUB_HEX="488bbf380200004885ff740d488b7608488b07ff90f0000000e9a4dc4200"
+
+default_install_user() {
+  if [[ -n "${JRIVER_INSTALL_USER:-}" ]]; then
+    printf '%s\n' "${JRIVER_INSTALL_USER}"
+    return
+  fi
+
+  if [[ -n "${SUDO_USER:-}" ]]; then
+    printf '%s\n' "${SUDO_USER}"
+    return
+  fi
+
+  if [[ -n "${USER:-}" ]]; then
+    printf '%s\n' "${USER}"
+    return
+  fi
+
+  id -un
+}
+
+INSTALL_USER="$(default_install_user)"
 
 usage() {
   cat <<EOF
@@ -801,6 +821,7 @@ ensure_prereqs() {
     file
     findutils
     gcc
+    libc6-dev
     proot
     patchelf
     rsync

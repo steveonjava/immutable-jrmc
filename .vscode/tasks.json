@@ -1,0 +1,55 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build AppImage",
+      "type": "shell",
+      "command": "./jriver-appimage-packager.sh",
+      "args": [
+        "--build-root",
+        "${env:BUILD_ROOT}",
+        "--export-dir",
+        "${env:EXPORT_DIR}"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build AppImage (Guard Disabled)",
+      "type": "shell",
+      "command": "./jriver-appimage-packager.sh",
+      "args": [
+        "--build-root",
+        "${env:BUILD_ROOT}",
+        "--export-dir",
+        "${env:EXPORT_DIR}",
+        "--baseline-label",
+        "local-guard-disabled"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "JRIVER_APPIMAGE_DISABLE_STARTUP_GUARD": "1"
+        }
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Clean Local Build State",
+      "type": "shell",
+      "command": "rm",
+      "args": [
+        "-rf",
+        "${workspaceFolder}/.local-build/devcontainer/build-root",
+        "${workspaceFolder}/.local-build/devcontainer/xdg-state",
+        "${workspaceFolder}/dist"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

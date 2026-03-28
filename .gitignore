@@ -7,6 +7,9 @@ baselines/
 AppDir/
 AppDir.work/
 staging/
+dist/
+.local-build/
+.container-cache/
 
 # Temporary files
 *.log
