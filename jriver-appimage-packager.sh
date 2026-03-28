@@ -842,7 +842,14 @@ ensure_prereqs() {
 }
 
 install_jriver() {
-  local -a install_args=(--install=repo --mcversion "${PINNED_JRIVER_VERSION}" --yes --no-update)
+  local -a install_args=(--yes --no-update)
+
+  if [[ -n "${PINNED_JRIVER_VERSION}" ]]; then
+    install_args+=(--install=local --mcversion "${PINNED_JRIVER_VERSION}")
+    msg INFO "Installing pinned JRiver ${PINNED_JRIVER_VERSION} from direct DEB"
+  else
+    install_args+=(--install=repo)
+  fi
 
   if (( SKIP_INSTALL == 1 )); then
     msg INFO "Skipping JRiver installation refresh"
